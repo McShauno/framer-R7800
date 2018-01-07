@@ -2,6 +2,7 @@
     "name" : "openwrt-framer-sample-package",
     "version" : "0.01-alpha",
     "description" : "A sample openrt-framer build configuration for the Netgear R7800",
+    "uri": "https://github.com/McShauno/framer-R7800",
     "author" : "Shaun McDonnell <sm@eisoft.com> (http://about.me/shaunmcdonnell)",
     "contributors": [
         "John Doe",
