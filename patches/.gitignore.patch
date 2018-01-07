@@ -1,0 +1,12 @@
+diff --git a/.gitignore b/.gitignore
+index aff13e1..48fdaa0 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -12,7 +12,6 @@
+ /logs
+ /feeds
+ /feeds.conf
+-/files
+ /overlay
+ /package/feeds
+ /package/openwrt-packages

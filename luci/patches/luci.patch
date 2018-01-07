@@ -1,0 +1,10 @@
+diff --git a/modules/luci-base/root/etc/config/luci b/modules/luci-base/root/etc/config/luci
+index baa3ac5..c226290 100644
+--- a/modules/luci-base/root/etc/config/luci
++++ b/modules/luci-base/root/etc/config/luci
+@@ -22,3 +22,5 @@ config internal ccache
+ 	option enable 1
+ 		
+ config internal themes
++	option Bootstrap '/luci-static/bootstrap'
++

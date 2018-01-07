@@ -1,0 +1,21 @@
+diff --git a/package/base-files/files/etc/rc.button/reset b/package/base-files/files/etc/rc.button/reset
+index 4265767..5746ea2 100755
+--- a/package/base-files/files/etc/rc.button/reset
++++ b/package/base-files/files/etc/rc.button/reset
+@@ -15,16 +15,8 @@ timeout)
+ 	set_state failsafe
+ ;;
+ released)
+-	if [ "$SEEN" -lt 1 ]
+-	then
+-		echo "REBOOT" > /dev/console
+-		sync
+-		reboot
+-	elif [ "$SEEN" -gt 5 -a -n "$OVERLAY" ]
+-	then
+ 		echo "FACTORY RESET" > /dev/console
+ 		jffs2reset -y && reboot &
+-	fi
+ ;;
+ esac
+ 

@@ -1,0 +1,12 @@
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts
+index 2ea856d..3445a79 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts
+@@ -168,6 +168,7 @@
+ 
+ 		pcie1: pci@1b700000 {
+ 			status = "ok";
++			force_gen1 = <1>;
+ 		};
+ 
+ 		nand@1ac00000 {

@@ -1,0 +1,12 @@
+diff --git a/package/network/services/dnsmasq/files/dhcp.conf b/package/network/services/dnsmasq/files/dhcp.conf
+index 360c7d7..098df63 100644
+--- a/package/network/services/dnsmasq/files/dhcp.conf
++++ b/package/network/services/dnsmasq/files/dhcp.conf
+@@ -10,6 +10,7 @@ config dnsmasq
+ 	option domain	'lan'
+ 	option expandhosts	1
+ 	option nonegcache	0
++	option cachesize	1000
+ 	option authoritative	1
+ 	option readethers	1
+ 	option leasefile	'/tmp/dhcp.leases'

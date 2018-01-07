@@ -1,0 +1,25 @@
+From 5dece07f2c08451dc8f065b588385a0a36b0664d Mon Sep 17 00:00:00 2001
+From: Pavel Kubelun <be.dissent@gmail.com>
+Date: Fri, 5 Jan 2018 11:01:24 -0500
+Subject: [PATCH] ipq806x: add missing core1 voltage tolerance
+
+Voltage tolerance is accounted per core, not per cpu, so add
+missing DT entry.
+
+Signed-off-by: Pavel Kubelun <be.dissent@gmail.com>
+---
+ target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi
+index d5724b3e633..b2ef4c9f558 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi
+@@ -50,6 +50,7 @@
+ 			clock-names = "cpu", "l2";
+ 			clock-latency = <100000>;
+ 			cpu-supply = <&smb208_s2b>;
++			voltage-tolerance = <5>;
+ 			cooling-min-state = <0>;
+ 			cooling-max-state = <10>;
+ 			#cooling-cells = <2>;

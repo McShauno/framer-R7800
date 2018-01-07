@@ -1,0 +1,14 @@
+diff --git a/package/base-files/files/bin/config_generate b/package/base-files/files/bin/config_generate
+index bbed567..1a3842f 100755
+--- a/package/base-files/files/bin/config_generate
++++ b/package/base-files/files/bin/config_generate
+@@ -224,7 +224,8 @@ generate_static_system() {
+ 		delete system.@system[0]
+ 		add system system
+ 		set system.@system[-1].hostname='OpenWrt'
+-		set system.@system[-1].timezone='UTC'
++		set system.@system[-1].timezone='EST5EDT,M3.2.0,M11.1.0'
++		set system.@system[-1].zonename='America/New York'
+ 		set system.@system[-1].ttylogin='0'
+ 		set system.@system[-1].log_size='64'
+ 		set system.@system[-1].urandom_seed='0'

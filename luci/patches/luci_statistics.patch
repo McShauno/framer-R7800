@@ -1,0 +1,44 @@
+diff --git a/applications/luci-app-statistics/root/etc/config/luci_statistics b/applications/luci-app-statistics/root/etc/config/luci_statistics
+index 8cc918e..b04970a 100644
+--- a/applications/luci-app-statistics/root/etc/config/luci_statistics
++++ b/applications/luci-app-statistics/root/etc/config/luci_statistics
+@@ -55,7 +55,7 @@ config statistics 'collectd_apcups'
+ 	option Port '3551'
+ 
+ config statistics 'collectd_conntrack'
+-	option enable '0'
++	option enable '1'
+ 
+ config statistics 'collectd_contextswitch'
+ 	option enable '0'
+@@ -64,7 +64,7 @@ config statistics 'collectd_cpu'
+ 	option enable '1'
+ 
+ config statistics 'collectd_cpufreq'
+-	option enable '0'
++	option enable '1'
+ 
+ config statistics 'collectd_df'
+ 	option enable '0'
+@@ -84,7 +84,7 @@ config statistics 'collectd_dns'
+ 	option IgnoreSources '127.0.0.1'
+ 
+ config statistics 'collectd_entropy'
+-	option enable '0'
++	option enable '1'
+ 
+ config statistics 'collectd_exec'
+ 	option enable '0'
+@@ -163,9 +163,9 @@ config statistics 'collectd_tcpconns'
+ 	option LocalPorts '22 80'
+ 
+ config statistics 'collectd_thermal'
+-	option enable '0'
+-	option IgnoreSelected '0'
+-	option Device ''
++	option enable '1'
++	option IgnoreSelected '1'
++	option Device 'cooling_device0 cooling_device1'
+ 
+ config statistics 'collectd_uptime'
+ 	option enable '0'

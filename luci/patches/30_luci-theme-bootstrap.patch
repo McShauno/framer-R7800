@@ -1,0 +1,13 @@
+diff --git a/themes/luci-theme-bootstrap/root/etc/uci-defaults/30_luci-theme-bootstrap b/themes/luci-theme-bootstrap/root/etc/uci-defaults/30_luci-theme-bootstrap
+index 09299e0..c18d369 100755
+--- a/themes/luci-theme-bootstrap/root/etc/uci-defaults/30_luci-theme-bootstrap
++++ b/themes/luci-theme-bootstrap/root/etc/uci-defaults/30_luci-theme-bootstrap
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ uci batch <<-EOF
+ 	set luci.themes.Bootstrap=/luci-static/bootstrap
+-	set luci.main.mediaurlbase=/luci-static/bootstrap
++#	set luci.main.mediaurlbase=/luci-static/bootstrap
+ 	commit luci
+ EOF
+ exit 0

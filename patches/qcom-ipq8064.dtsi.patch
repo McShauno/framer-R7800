@@ -1,0 +1,31 @@
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi
+index 9996bd7..4b93fea 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064.dtsi
+@@ -1051,6 +1051,8 @@
+ 
+ 			perst-gpios = <&qcom_pinmux 3 GPIO_ACTIVE_LOW>;
+ 
++			phy-tx0-term-offset = <7>;
++
+ 			status = "disabled";
+ 		};
+ 
+@@ -1103,6 +1105,8 @@
+ 
+ 			perst-gpios = <&qcom_pinmux 48 GPIO_ACTIVE_LOW>;
+ 
++			phy-tx0-term-offset = <7>;
++
+ 			status = "disabled";
+ 		};
+ 
+@@ -1155,6 +1159,8 @@
+ 
+ 			perst-gpios = <&qcom_pinmux 63 GPIO_ACTIVE_LOW>;
+ 
++			phy-tx0-term-offset = <7>;
++
+ 			status = "disabled";
+ 		};
+ 

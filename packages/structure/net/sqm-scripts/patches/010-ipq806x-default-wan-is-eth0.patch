@@ -1,0 +1,13 @@
+--- a/platform/openwrt/sqm-uci
++++ b/platform/openwrt/sqm-uci
+@@ -1,7 +1,7 @@
+ 
+-config queue 'eth1'
++config queue 'eth0'
+         option enabled '0'
+-        option interface 'eth1'
++        option interface 'eth0.2'
+         option download '85000'
+         option upload '10000'
+         option qdisc 'fq_codel'
+

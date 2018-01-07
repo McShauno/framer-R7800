@@ -1,0 +1,12 @@
+diff --git a/net/nlbwmon/files/nlbwmon.init b/net/nlbwmon/files/nlbwmon.init
+index 3f01d0f..993e9d6 100755
+--- a/net/nlbwmon/files/nlbwmon.init
++++ b/net/nlbwmon/files/nlbwmon.init
+@@ -1,6 +1,6 @@
+ #!/bin/sh /etc/rc.common
+ 
+-START=60
++START=85
+ 
+ USE_PROCD=1
+ NAME=nlbwmon

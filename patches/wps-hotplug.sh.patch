@@ -1,0 +1,21 @@
+diff --git a/package/network/services/hostapd/files/wps-hotplug.sh b/package/network/services/hostapd/files/wps-hotplug.sh
+index 24af80e..235b27b 100644
+--- a/package/network/services/hostapd/files/wps-hotplug.sh
++++ b/package/network/services/hostapd/files/wps-hotplug.sh
+@@ -1,11 +1,16 @@
+ #!/bin/sh
+ 
+ if [ "$ACTION" = "pressed" -a "$BUTTON" = "wps" ]; then
++	logger "WPS button pressed, looking for active radios"
++#	echo "255" > /sys/class/leds/r7800:amber:power/brightness
+ 	cd /var/run/hostapd
+ 	for socket in *; do
+ 		[ -S "$socket" ] || continue
++		logger "WPS activated for: $socket"
+ 		hostapd_cli -i "$socket" wps_pbc
+ 	done
++#	sleep 120
++#	echo "0" > /sys/class/leds/r7800:amber:power/brightness
+ fi
+ 
+ return 0

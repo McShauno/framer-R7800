@@ -1,0 +1,12 @@
+diff --git a/modules/luci-mod-admin-full/luasrc/view/admin_system/flashops.htm b/modules/luci-mod-admin-full/luasrc/view/admin_system/flashops.htm
+index 3e3f65d..8c7732c 100644
+--- a/modules/luci-mod-admin-full/luasrc/view/admin_system/flashops.htm
++++ b/modules/luci-mod-admin-full/luasrc/view/admin_system/flashops.htm
+@@ -40,6 +40,7 @@
+ 			</form>
+ 			<% end %>
+ 		</div>
++		<div class="cbi-section-descr"><%:Note: The 'push for five seconds' requirement has been removed from the reset button. When you press the reset button, the router clears the jffs2 overlay partition completely and thus reverts to the original configuration files included in the firmware.%></div>
+ 		<br />
+ 		<div class="cbi-section-descr"><%:To restore configuration files, you can upload a previously generated backup archive here.%></div>
+ 		<div class="cbi-section-node">

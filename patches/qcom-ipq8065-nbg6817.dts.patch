@@ -1,0 +1,12 @@
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts
+index 15165b9..987ee85 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts
+@@ -229,6 +229,7 @@
+ 			reset-gpio = <&qcom_pinmux 48 GPIO_ACTIVE_LOW>;
+ 			pinctrl-0 = <&pcie1_pins>;
+ 			pinctrl-names = "default";
++			force_gen1 = <1>;
+ 		};
+ 
+ 		mdio0: mdio {

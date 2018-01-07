@@ -1,0 +1,44 @@
+{
+    "name" : "openwrt-framer-sample-package",
+    "version" : "0.01-alpha",
+    "description" : "A sample openrt-framer build configuration for the Netgear R7800",
+    "author" : "Shaun McDonnell <sm@eisoft.com> (http://about.me/shaunmcdonnell)",
+    "contributors": [
+        "John Doe",
+        "Jane Doe"
+    ],
+    "device": {
+        "manufacturer": "Netgear",
+        "model": "R7800"
+    },
+    "openwrt": {
+        "repository": {
+            "url": "git://git.openwrt.org/openwrt/openwrt.git",
+            "branch": "master",
+            "target": "openwrt"
+        }
+    },
+    "base": {
+        "prebuild": "pre.sh",
+        "structureDirectory": "structure",
+        "patchesDirectory": "patches",
+        "postbuild": "post.sh"
+    },
+    "plans": [
+        {
+            "name": "luci",
+            "prebuild": "pre-luci.sh",
+            "structureDirectory": "structure",
+            "patchesDirectory": "patches",
+            "postbuild": "post-luci.sh"
+        },
+        {
+            "name": "packages",
+            "prebuild": "pre-packages.sh",
+            "structureDirectory": "structure",
+            "patchesDirectory": "patches",
+            "postbuild": "post-packages.sh"
+        }
+    ],
+    "finalize": "final.sh"
+}

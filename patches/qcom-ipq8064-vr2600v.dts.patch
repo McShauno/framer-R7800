@@ -1,0 +1,18 @@
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts
+index b55a98d..561c49a 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts
+@@ -259,12 +259,11 @@
+ 
+ 		pcie0: pci@1b500000 {
+ 			status = "ok";
+-			phy-tx0-term-offset = <7>;
+ 		};
+ 
+ 		pcie1: pci@1b700000 {
+ 			status = "ok";
+-			phy-tx0-term-offset = <7>;
++			force_gen1 = <1>;
+ 		};
+ 
+ 		mdio0: mdio {

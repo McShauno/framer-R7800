@@ -1,0 +1,28 @@
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts
+index 403054c..ff7203a 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts
+@@ -363,13 +363,7 @@
+ 
+ 					ubi@1680000 {
+ 						label = "ubi";
+-						reg = <0x1680000 0x1E00000>;
+-					};
+-
+-					netgear@3480000 {
+-						label = "netgear";
+-						reg = <0x3480000 0x4480000>;
+-						read-only;
++						reg = <0x1680000 0x6280000>;
+ 					};
+ 
+ 					reserve@7900000 {
+@@ -380,7 +374,7 @@
+ 
+ 					firmware@1480000 {
+ 						label = "firmware";
+-						reg = <0x1480000 0x2000000>;
++						reg = <0x1480000 0x6480000>;
+ 					};
+ 				};
+ 			};

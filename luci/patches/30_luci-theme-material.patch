@@ -1,0 +1,13 @@
+diff --git a/themes/luci-theme-material/root/etc/uci-defaults/30_luci-theme-material b/themes/luci-theme-material/root/etc/uci-defaults/30_luci-theme-material
+index b013378..983fc38 100755
+--- a/themes/luci-theme-material/root/etc/uci-defaults/30_luci-theme-material
++++ b/themes/luci-theme-material/root/etc/uci-defaults/30_luci-theme-material
+@@ -1,7 +1,7 @@
+ #!/bin/sh
+ uci batch <<-EOF
+ 	set luci.themes.Material=/luci-static/material
+-	set luci.main.mediaurlbase=/luci-static/material
++#	set luci.main.mediaurlbase=/luci-static/material
+ 	commit luci
+ EOF
+ exit 0
