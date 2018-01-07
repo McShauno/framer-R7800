@@ -1,0 +1,1360 @@
+From 026ae921121b496fb753a656d6d3412f744657b1 Mon Sep 17 00:00:00 2001
+From: dissent1 <be.dissent+github@gmail.com>
+Date: Wed, 24 May 2017 19:44:18 +0300
+Subject: [PATCH] ipq806x: use upstream switch phy driver (DSA)
+
+Use upstream switch phy driver QCA8K instead of ar8xxx driver.
+
+This allows to set interfaces on per port basis, so each port is
+represented via its own interface:
+PORT1=lan1
+PORT2=lan2
+PORT3=lan3
+PORT4=lan4
+WAN=wan
+
+This also allows traffic offloading from cpu.
+
+After this commit br-lan should consist of lan1, lan2, lan3, lan4
+and wan - of wan.
+eth0 and eth1 interfaces should be excluded.
+
+If you sysupgrade with saving settings your router may become
+inaccessible via wired interface, so there are 2 options:
+1. to connect via wireless interface and adjust wired interfaces
+to the combination mentioned above
+OR
+2. to factory reset the router so it picks default configuration.
+
+Sysupgrading without saving settings is suggested.
+
+Signed-off-by: Pavel Kubelun <be.dissent@gmail.com>
+---
+ .../ipq806x/base-files/etc/board.d/02_network      |  36 +++---
+ target/linux/ipq806x/config-4.9                    |   3 -
+ .../arch/arm/boot/dts/qcom-ipq8064-ap148.dts       |  98 ++++++++++++++---
+ .../arch/arm/boot/dts/qcom-ipq8064-c2600.dts       |  98 ++++++++++++++---
+ .../arch/arm/boot/dts/qcom-ipq8064-d7800.dts       | 104 +++++++++++++++---
+ .../arch/arm/boot/dts/qcom-ipq8064-db149.dts       | 105 ++++++++++++++----
+ .../arch/arm/boot/dts/qcom-ipq8064-ea8500.dts      |  98 ++++++++++++++---
+ .../arch/arm/boot/dts/qcom-ipq8064-r7500.dts       |  98 ++++++++++++++---
+ .../arch/arm/boot/dts/qcom-ipq8064-r7500v2.dts     |  98 ++++++++++++++---
+ .../arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts     |  98 ++++++++++++++---
+ .../arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts     | 116 ++++++++++++++------
+ .../arch/arm/boot/dts/qcom-ipq8065-r7800.dts       | 121 +++++++++++++++------
+ 12 files changed, 872 insertions(+), 201 deletions(-)
+
+diff --git a/target/linux/ipq806x/base-files/etc/board.d/02_network b/target/linux/ipq806x/base-files/etc/board.d/02_network
+index 28dc405c8a2..1155243e1ae 100755
+--- a/target/linux/ipq806x/base-files/etc/board.d/02_network
++++ b/target/linux/ipq806x/base-files/etc/board.d/02_network
+@@ -13,28 +13,27 @@ board=$(board_name)
+ 
+ case "$board" in
+ ap148 |\
++db149)
++	ucidef_set_interface_lan "lan1 lan2 lan3 lan4"
++	ucidef_set_interface_wan "wan"
++	;;
+ d7800 |\
+ r7500 |\
+ r7500v2 |\
+-r7800 |\
+-vr2600v)
+-	ucidef_add_switch "switch0" \
+-		"1:lan" "2:lan" "3:lan" "4:lan" "6@eth1" "5:wan" "0@eth0"
++r7800)
++	ucidef_set_interface_lan "lan1 lan2 lan3 lan4"
++	ucidef_set_interface_wan "wan"
++	ucidef_set_interface_macaddr "lan" "$(mtd_get_mac_binary art 0)"
+ 	;;
+ c2600)
+-	ucidef_add_switch "switch0" \
+-		"1:lan:4" "2:lan:3" "3:lan:2" "4:lan:1" "6@eth1" "5:wan" "0@eth0"
+-	;;
+-db149)
+-	ucidef_set_interface_lan "eth1 eth2 eth3"
+-	ucidef_add_switch "switch0" \
+-		"1:lan" "2:lan" "3:lan" "4:lan" "6u@eth1" "5:wan" "0u@eth0"
++	ucidef_set_interface_lan "lan1 lan2 lan3 lan4"
++	ucidef_set_interface_wan "wan"
++	ucidef_set_interface_macaddr "lan" "$(mtd_get_mac_binary default-mac 8)"
+ 	;;
+ ea8500)
+-
+ 	hw_mac_addr=$(mtd_get_mac_ascii devinfo hw_mac_addr)
+-	ucidef_add_switch "switch0" \
+-		"0@eth0" "1:lan" "2:lan" "3:lan" "4:lan" "5:wan"
++	ucidef_set_interface_lan "lan1 lan2 lan3 lan4"
++	ucidef_set_interface_wan "wan"
+ 	ucidef_set_interface_macaddr "lan" "$hw_mac_addr"
+ 	ucidef_set_interface_macaddr "wan" "$hw_mac_addr"
+ 	;;
+@@ -45,11 +44,16 @@ fritz4040)
+ 	;;
+ nbg6817)
+ 	hw_mac_addr=$(mtd_get_mac_ascii 0:APPSBLENV ethaddr)
+-	ucidef_add_switch "switch0" \
+-		"1:lan" "2:lan" "3:lan" "4:lan" "6@eth1" "5:wan" "0@eth0"
++	ucidef_set_interface_lan "lan1 lan2 lan3 lan4"
++	ucidef_set_interface_wan "wan"
+ 	ucidef_set_interface_macaddr "lan" "$hw_mac_addr"
+ 	ucidef_set_interface_macaddr "wan" "$(macaddr_add $hw_mac_addr 1)"
+ 	;;
++vr2600v)
++	ucidef_set_interface_lan "lan1 lan2 lan3 lan4"
++	ucidef_set_interface_wan "wan"
++	ucidef_set_interface_macaddr "lan" "$(mtd_get_mac_binary default-mac 0)"
++	;;
+ *)
+ 	echo "Unsupported hardware. Network interfaces not intialized"
+ 	;;
+diff --git a/target/linux/ipq806x/config-4.9 b/target/linux/ipq806x/config-4.9
+index bce999009a2..6a80e856bf1 100644
+--- a/target/linux/ipq806x/config-4.9
++++ b/target/linux/ipq806x/config-4.9
+@@ -4,7 +4,6 @@ CONFIG_ALIGNMENT_TRAP=y
+ CONFIG_APQ_GCC_8084=y
+ CONFIG_APQ_MMCC_8084=y
+ CONFIG_AR40XX_PHY=y
+-CONFIG_AR8216_PHY=y
+ CONFIG_ARCH_CLOCKSOURCE_DATA=y
+ CONFIG_ARCH_HAS_ELF_RANDOMIZE=y
+ CONFIG_ARCH_HAS_GCOV_PROFILE_ALL=y
+@@ -472,8 +471,6 @@ CONFIG_SPMI_MSM_PMIC_ARB=y
+ CONFIG_SRCU=y
+ CONFIG_STMMAC_ETH=y
+ CONFIG_STMMAC_PLATFORM=y
+-CONFIG_SWCONFIG=y
+-CONFIG_SWCONFIG_LEDS=y
+ CONFIG_SWIOTLB=y
+ CONFIG_SWPHY=y
+ CONFIG_SWP_EMULATE=y
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ap148.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ap148.dts
+index fa4f05bdbeb..e1466ae335b 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ap148.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ap148.dts
+@@ -195,24 +195,96 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan1";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan2";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan3";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan4";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-c2600.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-c2600.dts
+index 80bc5dfa046..e7c07f7b7b5 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-c2600.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-c2600.dts
+@@ -362,24 +362,96 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan1";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan2";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan3";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan4";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-d7800.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-d7800.dts
+index c1a4c82a285..b89ec17c4a8 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-d7800.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-d7800.dts
+@@ -285,36 +285,112 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan4";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan2";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan1";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+ 			status = "ok";
+ 			phy-mode = "rgmii";
+-			phy-handle = <&phy4>;
+ 			qcom,id = <1>;
+ 
+ 			pinctrl-0 = <&rgmii2_pins>;
+ 			pinctrl-names = "default";
+ 
+ 			mtd-mac-address = <&art 6>;
++
++			fixed-link {
++				speed = <1000>;
++				full-duplex;
++			};
+ 		};
+ 
+ 		gmac2: ethernet@37400000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-db149.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-db149.dts
+index 4c56866077c..12097810608 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-db149.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-db149.dts
+@@ -168,41 +168,102 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-				>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
+-				reg = <4>;
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
+ 			};
+ 
+-			phy6: ethernet-phy@6 {
+-				device_type = "ethernet-phy";
+-				reg = <6>;
++			phy_port4: phy@3 {
++				reg = <3>;
+ 			};
+ 
+-			phy7: ethernet-phy@7 {
+-				device_type = "ethernet-phy";
+-				reg = <7>;
++			phy_port5: phy@4 {
++				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan4";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan2";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan1";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac0: ethernet@37000000 {
+ 			status = "ok";
+ 			phy-mode = "rgmii";
+ 			qcom,id = <0>;
+-			phy-handle = <&phy4>;
+ 
+ 			pinctrl-0 = <&rgmii0_pins>;
+ 			pinctrl-names = "default";
+@@ -223,14 +284,12 @@
+ 			status = "ok";
+ 			phy-mode = "sgmii";
+ 			qcom,id = <2>;
+-			phy-handle = <&phy6>;
+ 		};
+ 
+ 		gmac3: ethernet@37600000 {
+ 			status = "ok";
+ 			phy-mode = "sgmii";
+ 			qcom,id = <3>;
+-			phy-handle = <&phy7>;
+ 		};
+ 	};
+ };
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ea8500.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ea8500.dts
+index 761fa43179f..9db70f3d947 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ea8500.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-ea8500.dts
+@@ -300,24 +300,96 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan1";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan2";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan3";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan4";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts
+index 2ea856d88b5..0c8f00d90b7 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500.dts
+@@ -251,24 +251,96 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan4";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan2";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan1";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500v2.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500v2.dts
+index a21cf18bee6..badbc8c4e80 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500v2.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-r7500v2.dts
+@@ -287,24 +287,96 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0xaa545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan4";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan2";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan1";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts
+index b55a98d229c..8c7ce197e33 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8064-vr2600v.dts
+@@ -275,24 +275,96 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan4";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan2";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan1";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts
+index 5fe14da2681..f1609e638c2 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-nbg6817.dts
+@@ -238,42 +238,96 @@
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
++			phy_port1: phy@0 {
+ 				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0xaa545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					0x00970 0x1e864443  /* QM_PORT0_CTRL0 */
+-					0x00974 0x000001c6  /* QM_PORT0_CTRL1 */
+-					0x00978 0x19008643  /* QM_PORT1_CTRL0 */
+-					0x0097c 0x000001c6  /* QM_PORT1_CTRL1 */
+-					0x00980 0x19008643  /* QM_PORT2_CTRL0 */
+-					0x00984 0x000001c6  /* QM_PORT2_CTRL1 */
+-					0x00988 0x19008643  /* QM_PORT3_CTRL0 */
+-					0x0098c 0x000001c6  /* QM_PORT3_CTRL1 */
+-					0x00990 0x19008643  /* QM_PORT4_CTRL0 */
+-					0x00994 0x000001c6  /* QM_PORT4_CTRL1 */
+-					0x00998 0x1e864443  /* QM_PORT5_CTRL0 */
+-					0x0099c 0x000001c6  /* QM_PORT5_CTRL1 */
+-					0x009a0 0x1e864443  /* QM_PORT6_CTRL0 */
+-					0x009a4 0x000001c6  /* QM_PORT6_CTRL1 */
+-					>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
++
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
++
++			phy_port4: phy@3 {
++				reg = <3>;
++			};
++
++			phy_port5: phy@4 {
+ 				reg = <4>;
+-				qca,ar8327-initvals = <
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan1";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan2";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan3";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan4";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {
+diff --git a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts
+index d4e038a9bd5..886a30a544b 100644
+--- a/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts
++++ b/target/linux/ipq806x/files-4.9/arch/arm/boot/dts/qcom-ipq8065-r7800.dts
+@@ -395,48 +395,97 @@
+ 			gpios = <&qcom_pinmux 1 GPIO_ACTIVE_HIGH &qcom_pinmux 0 GPIO_ACTIVE_HIGH>;
+ 			pinctrl-0 = <&mdio0_pins>;
+ 			pinctrl-names = "default";
++	
++			phy_port1: phy@0 {
++				reg = <0>;
++			};
++
++			phy_port2: phy@1 {
++				reg = <1>;
++			};
+ 
++			phy_port3: phy@2 {
++				reg = <2>;
++			};
+ 
+-			phy0: ethernet-phy@0 {
+-				device_type = "ethernet-phy";
+-				reg = <0>;
+-				qca,ar8327-initvals = <
+-					0x00004 0x7600000   /* PAD0_MODE */
+-					0x00008 0x1000000   /* PAD5_MODE */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					0x000e4 0xaa545     /* MAC_POWER_SEL */
+-					0x000e0 0xc74164de  /* SGMII_CTRL */
+-					0x0007c 0x4e        /* PORT0_STATUS */
+-					0x00094 0x4e        /* PORT6_STATUS */
+-					0x00970 0x1e864443  /* QM_PORT0_CTRL0 */
+-					0x00974 0x000001c6  /* QM_PORT0_CTRL1 */
+-					0x00978 0x19008643  /* QM_PORT1_CTRL0 */
+-					0x0097c 0x000001c6  /* QM_PORT1_CTRL1 */
+-					0x00980 0x19008643  /* QM_PORT2_CTRL0 */
+-					0x00984 0x000001c6  /* QM_PORT2_CTRL1 */
+-					0x00988 0x19008643  /* QM_PORT3_CTRL0 */
+-					0x0098c 0x000001c6  /* QM_PORT3_CTRL1 */
+-					0x00990 0x19008643  /* QM_PORT4_CTRL0 */
+-					0x00994 0x000001c6  /* QM_PORT4_CTRL1 */
+-					0x00998 0x1e864443  /* QM_PORT5_CTRL0 */
+-					0x0099c 0x000001c6  /* QM_PORT5_CTRL1 */
+-					0x009a0 0x1e864443  /* QM_PORT6_CTRL0 */
+-					0x009a4 0x000001c6  /* QM_PORT6_CTRL1 */
+-					>;
+-				qca,ar8327-vlans = <
+-					0x1	0x5e	    /* VLAN1 Ports 1/2/3/4/6 */
+-					0x2	0x21	    /* VLAN2 Ports 0/5 */
+-				>;
++			phy_port4: phy@3 {
++				reg = <3>;
+ 			};
+ 
+-			phy4: ethernet-phy@4 {
+-				device_type = "ethernet-phy";
++			phy_port5: phy@4 {
+ 				reg = <4>;
+-				qca,ar8327-initvals = <
+-					0x000e4 0x6a545     /* MAC_POWER_SEL */
+-					0x0000c 0x80        /* PAD6_MODE */
+-					>;
+ 			};
++
++			switch0@16 {
++				compatible = "qca,qca8337";
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				reg = <16>;
++
++				ports {
++					#address-cells = <1>;
++					#size-cells = <0>;
++					port@0 {
++						reg = <0>;
++						label = "cpu";
++						ethernet = <&gmac1>;
++						phy-mode = "rgmii";
++
++ 						fixed-link {
++ 							speed = <1000>;
++ 							full-duplex;
++ 						};
++					};
++
++					port@1 {
++						reg = <1>;
++						label = "lan4";
++						phy-handle = <&phy_port1>;
++					};
++
++					port@2 {
++						reg = <2>;
++						label = "lan3";
++						phy-handle = <&phy_port2>;
++					};
++
++					port@3 {
++						reg = <3>;
++						label = "lan2";
++						phy-handle = <&phy_port3>;
++					};
++
++					port@4 {
++						reg = <4>;
++						label = "lan1";
++						phy-handle = <&phy_port4>;
++					};
++
++					port@5 {
++						reg = <5>;
++						label = "wan";
++						phy-handle = <&phy_port5>;
++					};
++
++					/*
++					 * Disabled until DSA supports multiple CPUs,
++					 * otherwise it causes undefined behavior.
++					 *
++					 * port@6 {
++					 *	reg = <6>;
++					 *	label = "cpu";
++					 *	ethernet = <&gmac2>;
++					 *	phy-mode = "sgmii";
++					 *
++ 					 *	fixed-link {
++ 					 *		speed = <1000>;
++ 					 *		full-duplex;
++ 					 *	};
++					 * };
++					 */
++				};
++			};		
+ 		};
+ 
+ 		gmac1: ethernet@37200000 {

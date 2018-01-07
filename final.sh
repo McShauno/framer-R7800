@@ -1,17 +1,17 @@
 #!/bin/bash
 
 logline "Updating OpenWrt feeds..."
-${repository_target}/scripts/feeds update -i
+${REPOSITORY_TARGET}/scripts/feeds update -i
 
 logline "Installing packages..."
-${repository_target}/scripts/feeds install -a
+${REPOSITORY_TARGET}/scripts/feeds install -a
 
 logline "Finalizing config..."
-cp --verbose ${repository_target}/.config.init ${repository_target}/.config
+cp --verbose ${REPOSITORY_TARGET}/.config.init ${REPOSITORY_TARGET}/.config
 
 logline "Making defconfig..."
-make -C ${repository_target} defconfig
+make -C ${REPOSITORY_TARGET} defconfig
 
 logline "Making download..."
-make -C ${repository_target} download
+make -C ${REPOSITORY_TARGET} download
 
